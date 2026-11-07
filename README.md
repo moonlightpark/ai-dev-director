@@ -5,8 +5,8 @@ A local orchestrator that runs three subscription AI CLIs (Claude Code, OpenAI C
 HEAD / BUILDER / REVIEWER, and turns a one-line goal into tested, independently reviewed code — without a single
 pay-per-use API call.
 
-> 상태: 개인 운영 환경에서 매일 쓰고 있는 코드를 그대로 공개한 것입니다. 윈도우 우선, 한국어 UI.
-> Status: the code we run daily, published as-is. Windows-first, Korean UI, English comments.
+> 상태: 원본(digilogd-cmd/ai-dev-director)을 macOS에서 쓰도록 맞춘 포크입니다. 한국어 UI.
+> Status: a macOS-adapted fork of digilogd-cmd/ai-dev-director. Korean UI, English comments.
 
 ---
 
@@ -19,65 +19,88 @@ pay-per-use API call.
           HEAD decision ◀── REVIEWER ◀── Verifier (build / tests in an isolated worktree)
 ```
 
-- **NORMAL 파이프라인** — HEAD가 목표를 ORDER(허용 경로·파일 수·diff 상한이 명시된 작업 명세)로 만들고, BUILDER가
+- **NORMAL 파이프라인**: HEAD가 목표를 ORDER(허용 경로·파일 수·diff 상한이 명시된 작업 명세)로 만들고, BUILDER가
   파일 전체를 JSON으로 제출하면 Director가 Scope Guard로 검사한 뒤 **격리 작업본(git worktree)** 에 반영하고 테스트를
   돌립니다. REVIEWER가 독립 검토하고 HEAD가 PASS/FAIL/수정 지시를 내립니다. 원본 프로젝트는 절대 직접 수정되지 않습니다.
-- **미션(Mission)** — 채팅 한 줄이 미션이 됩니다. HEAD가 마일스톤 ORDER를 하나씩 계획하고, 각 단계는 직전 PASS 작업본의
+- **미션(Mission)**: 채팅 한 줄이 미션이 됩니다. HEAD가 마일스톤 ORDER를 하나씩 계획하고, 각 단계는 직전 PASS 작업본의
   스냅샷에서 시작하며, 실제 증거(테스트·리뷰)를 보고 다시 계획합니다. 완료된 산출물은 설정에 따라 자동 반영되되
   사람이 그 사이 고친 파일은 덮어쓰지 않습니다.
-- **HEAD 프록시 자율 모드** — 결제·실계좌 주문·실제 자격증명·되돌릴 수 없는 외부 행동만 사람에게 묻고, 나머지
+- **HEAD 프록시 자율 모드**: 결제·실계좌 주문·실제 자격증명·되돌릴 수 없는 외부 행동만 사람에게 묻고, 나머지
   마찰(빌더 JSON 깨짐, 토큰 한도, 경로 범위, 리뷰 지적, 한도 초과)은 재시도·공급자 교체·재계획으로 스스로 풉니다.
-- **TRIAD 연구 모드** — 세 AI가 독립 연구 → 상호 비판 → 종합 가설 → NORMAL 파이프라인으로 실험 구현 → 세 갈래
+- **TRIAD 연구 모드**: 세 AI가 독립 연구 → 상호 비판 → 종합 가설 → NORMAL 파이프라인으로 실험 구현 → 세 갈래
   해석 → 연구 메모리. 설계와 구현은 `docs/V3_TRIAD_RESEARCH_PLAN.md`.
-- **TRINITY 콘솔(8081)** — 세 AI의 역할·호출·토큰·현재 단계를 보여주는 무대형 대시보드, 채팅, 미션 다시보기,
+- **TRINITY 콘솔(8081)**: 세 AI의 역할·호출·토큰·현재 단계를 보여주는 무대형 대시보드, 채팅, 미션 다시보기,
   역할 교환, **작업 정지 / 시스템 중지** 버튼. `/classic`은 표 중심의 작업실 화면입니다.
 
 ## 지키는 것 (Hard rules, enforced in code)
 
 | 규칙 | 구현 |
 |---|---|
-| 종량제 API 금지 — 로그인된 구독 CLI만 사용 | `core/env_utils.py` 가 모든 `*_API_KEY` 를 환경에서 제거하고 CLI를 호출 |
+| 종량제 API 금지 (로그인된 구독 CLI만 사용) | `core/env_utils.py`가 모든 `*_API_KEY`를 환경에서 제거하고 CLI를 호출 |
 | 원본 프로젝트 무수정 | 모든 빌드는 `.director_worktrees/` 안의 git worktree에서만 |
 | Scope Guard | ORDER의 허용 경로·보호 경로·파일 수·diff 상한을 Director가 검사, 빌더는 완화 불가 (`core/safety.py`) |
 | 리뷰어 fail-closed | 리뷰 응답이 없거나 깨지면 PASS가 아니라 FAIL |
-| 돈·자격증명은 사람이 | `core/autopilot.py` 의 정지 조건 — 결제, 실계좌 주문 코드(`OrderSend` 등), 계정 생성, 외부 비가역 행동 |
+| 돈·자격증명은 사람이 | `core/autopilot.py`의 정지 조건: 결제, 실계좌 주문 코드(`OrderSend` 등), 계정 생성, 외부 비가역 행동 |
 | 프로세스 트리 타임아웃 | 멈춘 CLI는 자식까지 함께 종료 (`core/process_runner.py`) |
 | 정지는 정지 | 채팅의 "중단/멈춰/stop", 콘솔의 작업 정지 버튼 → 돌던 CLI 즉시 종료, 미션 STOPPED 고정, 재시작해도 재개 안 됨 |
 
 ## 요구 사항 (Requirements)
 
-- Windows 10/11 (경로 처리·폴더 선택 창·PowerShell 런처가 윈도우 기준. 핵심 로직은 POSIX에서도 동작하지만 미검증)
-- Python 3.9+ 와 `pip install -r requirements.txt`
+- macOS (Apple Silicon에서 확인). 폴더 선택 창과 PowerShell 런처(`*.ps1`)는 윈도우 전용이라 macOS에서는 쓰지 않습니다.
+- Python 3.9+ (가상환경 권장)
 - Git
+- Node.js와 npm (Codex CLI 설치용)
 - 로그인된 CLI 중 최소 두 개: **Claude Code**(`claude`), **OpenAI Codex**(`codex`), **Google Antigravity**(`agy`).
-  구독 로그인 세션을 그대로 씁니다. API 키는 필요 없고, 있어도 무시됩니다.
+  구독 로그인 세션을 그대로 씁니다. API 키는 필요 없고, 있어도 무시됩니다. CLI는 `PATH`에서 자동으로 찾습니다.
+
+CLI 준비 예시:
+
+```bash
+npm install -g @openai/codex
+codex login                    # ChatGPT 구독 계정으로 로그인
+claude                         # Claude Code 첫 실행 때 로그인
+```
 
 ## 빠른 시작 (Quick start)
 
 ```bash
-pip install -r requirements.txt
-python -m pytest -q            # 596개 테스트, CLI 없이 스텁으로 돕니다 (약 25분)
+git clone https://github.com/moonlightpark/ai-dev-director.git ~/ai-dev-director
+cd ~/ai-dev-director
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest -q  # 596개 테스트, CLI 없이 스텁으로 돕니다 (약 25분)
 ```
 
 2026-11-04 기준 593개 통과, 3개 실패. 실패 3개는 알려진 드리프트입니다: 두 개는 "저장소가 아닌 폴더는 거부"를
 기대하는 옛 UI 테스트인데 v3.0부터 빈 폴더도 자동 준비(greenfield)하도록 바뀌었고, 하나는 스냅샷 제외 목록 픽스처
 드리프트입니다. 안전 게이트·정책·미션 테스트는 모두 통과합니다.
 
-콘솔 켜기 (윈도우):
+콘솔 켜기 (macOS):
 
-```powershell
-.\start-companion.ps1          # http://127.0.0.1:8081  (TRINITY 무대)  ·  /classic (작업실)
-.\stop-companion.ps1
+```bash
+cd ~/ai-dev-director
+nohup .venv/bin/python companion_server.py > data/companion.log 2> data/companion.err &
+open http://127.0.0.1:8081     # TRINITY 무대, 작업실은 /classic
 ```
+
+콘솔 끄기:
+
+```bash
+pkill -f companion_server.py
+```
+
+끄자마자 다시 켜면 `Dashboard already running: 127.0.0.1:8081 is in use` 오류가 날 수 있습니다. 서버가 윈도우 기준으로
+포트 재사용(`SO_REUSEADDR`)을 막아 두어서, macOS에서는 포트가 TIME_WAIT 상태로 30초~1분 남습니다.
+`netstat -an | grep 8081` 출력이 비면 다시 켜세요.
 
 CLI로 바로 한 번 돌리기:
 
 ```bash
-python director.py run -p D:/work/my_project -g "src/calc.py에 add(a, b)를 만들고 테스트를 추가해"
-python director.py mission -p D:/work/my_project -g "회원가입 흐름을 끝까지 구현"
-python director.py do -g "로그인 버그 고쳐" --profile quick     # 미션 + 자동 반영을 한 번에
-python director.py status
-python director.py clean-worktrees -p D:/work/my_project --dry-run
+.venv/bin/python director.py run -p ~/work/my_project -g "src/calc.py에 add(a, b)를 만들고 테스트를 추가해"
+.venv/bin/python director.py mission -p ~/work/my_project -g "회원가입 흐름을 끝까지 구현"
+.venv/bin/python director.py do -g "로그인 버그 고쳐" --profile quick     # 미션 + 자동 반영을 한 번에
+.venv/bin/python director.py status
+.venv/bin/python director.py clean-worktrees -p ~/work/my_project --dry-run
 ```
 
 ## 설정 (Configuration)
@@ -86,7 +109,21 @@ python director.py clean-worktrees -p D:/work/my_project --dry-run
 자율 모드(`autonomy`)와 프로필(`quick / standard / deep`), 프로젝트별 검증 명령(`projects`)을 둡니다.
 프로젝트별 검증 명령을 프로젝트 안이 아니라 여기에 두는 이유는 빌더가 그것을 약화시킬 수 없게 하기 위해서입니다.
 
-`companion.json` 은 콘솔 포트와(선택) 허용 프로젝트 목록입니다. 콘솔은 항상 `127.0.0.1` 에만 바인딩되며,
+이 포크의 기본값은 macOS에서 Claude Code와 Codex 두 CLI로 돌도록 바꿔 두었습니다.
+
+| 항목 | 원본 | 이 포크 |
+|---|---|---|
+| `head.provider` | `claude` | `claude` |
+| `builder.provider` | `antigravity` | `claude` (Antigravity가 없을 때. 장애 조치는 `codex`) |
+| `reviewer.provider` | `codex` | `codex` (HEAD와 다른 공급자라 독립 검토 유지) |
+| `solomon.allowed_roots` | `D:/work` | `/Users/mac/work` |
+| `web_access.enabled` | 없음 | `true` |
+
+`web_access.enabled: true`이면 Codex는 `--search`(실시간 웹 검색)로, Claude Code는 `--allowedTools WebSearch,WebFetch`로
+호출됩니다. 문서·라이브러리 버전·API 조회용이고, 샌드박스·Scope Guard·사람 정지 조건은 그대로입니다. 끄려면 `false`로 바꿉니다.
+`solomon.allowed_roots`와 `denied`의 경로는 자기 홈 폴더에 맞게 고치세요.
+
+`companion.json`은 콘솔 포트와(선택) 허용 프로젝트 목록입니다. 콘솔은 항상 `127.0.0.1` 에만 바인딩되며,
 상태를 바꾸는 요청은 로컬 출처 검사와 브리지 토큰(`data/solomon-bridge.token`, 첫 실행 때 생성)을 요구합니다.
 
 ## 구조 (Layout)
@@ -114,4 +151,4 @@ docs/                  설계·마일스톤 기록
 
 ## 라이선스 (License)
 
-MIT License — `LICENSE` 파일을 보세요. 자유롭게 쓰고, 고치고, 재배포할 수 있습니다. 저작권 표시와 라이선스 문구만 남겨 주세요.
+MIT License. `LICENSE` 파일을 보세요. 자유롭게 쓰고, 고치고, 재배포할 수 있습니다. 저작권 표시와 라이선스 문구만 남겨 주세요.

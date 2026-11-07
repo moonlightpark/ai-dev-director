@@ -122,7 +122,8 @@ class CodexHead(BaseHead):
 
         # Official Codex CLI supports '-' / omitted PROMPT as stdin.  Never put potentially large ORDER,
         # review, or decision evidence on the Windows command line (WinError 206).
-        cmd = [self.executable, "exec", "--sandbox", "read-only", "-"]
+        from core.env_utils import codex_web_args
+        cmd = [self.executable] + codex_web_args() + ["exec", "--sandbox", "read-only", "-"]
         invocation_desc = "codex exec --sandbox read-only - <stdin>"
         self.logger.info(f"[Codex Head] Invoking CLI via ProcessTreeRunner: {self.executable} (cwd={target_cwd})")
 

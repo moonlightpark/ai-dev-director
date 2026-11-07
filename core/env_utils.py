@@ -21,6 +21,29 @@ def get_sanitized_env() -> Dict[str, str]:
         env.pop(k, None)
     return env
 
+def web_access_enabled() -> bool:
+    """config.yaml `web_access.enabled`: lets the CLIs use their own built-in web search / fetch tools
+    (Codex `--search`, Claude Code WebSearch/WebFetch). Read-only lookups only; sandboxes are unchanged.
+    Always off under the test harness so stubbed argv stays deterministic."""
+    if os.environ.get("DIRECTOR_TESTING") == "1":
+        return False
+    try:
+        import yaml
+        cfg = yaml.safe_load((Path(__file__).resolve().parent.parent / "config.yaml").read_text(encoding="utf-8")) or {}
+        return bool((cfg.get("web_access") or {}).get("enabled", False))
+    except Exception:
+        return False
+
+
+def codex_web_args() -> list:
+    """Top-level Codex flags (placed before `exec`)."""
+    return ["--search"] if web_access_enabled() else []
+
+
+def claude_web_args() -> list:
+    return ["--allowedTools", "WebSearch,WebFetch"] if web_access_enabled() else []
+
+
 def resolve_cli(name: str) -> Optional[str]:
     """
     Discovers the official CLI executable from OS PATH or standard install locations.

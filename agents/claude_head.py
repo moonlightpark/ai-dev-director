@@ -104,7 +104,8 @@ class ClaudeHead(BaseHead):
         if not self.executable or not Path(self.executable).exists():
             raise RuntimeError(f"CONFIG_ERROR: Official Claude Code CLI not found at: {self.executable}")
 
-        cmd = [self.executable, "--print", "--output-format", "json"]
+        from core.env_utils import claude_web_args
+        cmd = [self.executable, "--print", "--output-format", "json"] + claude_web_args()
         invocation_desc = "claude --print --output-format json"
         self.logger.info(f"[Claude Head] Invoking CLI via ProcessTreeRunner: {self.executable} (cwd={cwd})")
 

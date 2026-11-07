@@ -16,3 +16,4 @@ companion.local.json
 *.token
 *.db
 *.sqlite3
+.venv/

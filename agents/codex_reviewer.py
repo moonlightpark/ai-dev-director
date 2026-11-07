@@ -169,7 +169,8 @@ class CodexReviewer:
         except Exception as e:
             self.logger.warning(f"[Codex Reviewer] git check exception: {e}")
 
-        cmd = [self.executable, "exec", "--sandbox", "read-only", "-"]
+        from core.env_utils import codex_web_args
+        cmd = [self.executable] + codex_web_args() + ["exec", "--sandbox", "read-only", "-"]
         res = ProcessTreeRunner.run(
             argv=cmd,
             cwd=str(wt),

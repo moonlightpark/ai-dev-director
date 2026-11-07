@@ -9,9 +9,9 @@ head:
 
 builder:
   mode: proposal          # Builder returns whole files as JSON; the Director validates and writes them.
-  provider: antigravity   # Primary BUILDER: Google Antigravity CLI (failover: codex / claude)
-  model: antigravity-cli
-  executable: null        # Discovered automatically via resolve_cli('agy')
+  provider: claude        # macOS setup: Antigravity (agy) not installed -> Claude Code builds (failover: codex)
+  model: claude-code-cli
+  executable: null        # Discovered automatically via resolve_cli('claude')
 
 reviewer:
   provider: codex         # Primary REVIEWER: OpenAI Codex CLI (failover: claude)
@@ -42,6 +42,11 @@ verification:
   lint_command: null
 
 bootstrap:
+  enabled: true
+
+# Web access for the AI CLIs: Codex gets `--search` (live web search), Claude Code gets WebSearch/WebFetch.
+# Lookups only (docs, library versions, APIs); sandboxes, Scope Guard and the human-stop rules are unchanged.
+web_access:
   enabled: true
 
 # Per-project verification (kept here, never inside the project, so a Builder cannot weaken it).
@@ -76,6 +81,6 @@ autonomy:
 # Only git projects under allowed_roots may be targeted; the Director's own folder is never a target.
 solomon:
   allowed_roots:
-    - "D:/work"
+    - "/Users/mac/work"
   denied:
-    - "D:/work/ai-dev-director"
+    - "/Users/mac/ai-dev-director"
